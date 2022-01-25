@@ -3,7 +3,7 @@ from typing import Literal
 from discord.ext import commands
 
 from .bot import PycordManager
-from .checks import pycord_only
+from .checks import PycordOnly
 from .models import GuildModel, TagModel
 
 
@@ -13,7 +13,7 @@ PycordManager.Tag = TagModel
 
 __all__ = (
     "PycordManager",
-    "pycord_only",
+    "PycordOnly",
     "Cog",
     "GuildModel",
     "Lowercase",
