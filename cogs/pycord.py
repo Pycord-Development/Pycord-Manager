@@ -26,8 +26,8 @@ class Pycord(Cog):
     def __init__(self, bot):
         super().__init__(bot)
         self.staff_list = None
-        self.staff_list_channel = bot.get_channel(884730803588829206)
-        self.suggestions_channel = bot.get_channel(881735375947722753)
+        self.staff_list_channel = None
+        self.suggestions_channel = None
 
     async def convert_attr(self, path):
         thing = discord
@@ -40,7 +40,7 @@ class Pycord(Cog):
                 return None, None
         return thing, path
 
-    @discord.slash_command(name="doc")
+    @discord.slash_command(name="doc", guild_ids=[881207955029110855])
     @discord.option("thing", autocomplete=getattrs)
     async def _get_doc(self, ctx, thing):
         """View the docstring of an attribute of the discord module."""
@@ -52,7 +52,7 @@ class Pycord(Cog):
 
         await ctx.respond(f"```\n{cleandoc(thing.__doc__)[:1993]}```")
 
-    @discord.slash_command()
+    @discord.slash_command(guild_ids=[881207955029110855])
     async def example(self, ctx, name: str = ""):
         """Get the link of an example from the Pycord repository."""
 
@@ -79,14 +79,15 @@ class Pycord(Cog):
         """Suggest something related to library design.
         This will be posted to <#881735375947722753>."""
         await ctx.message.delete()
+        self.suggestions_channel = self.suggestions_channel or self.bot.get_channel(
+            881735375947722753
+        )
         msg = await self.suggestions_channel.send(
             embed=discord.Embed(
                 description=text,
                 colour=discord.Color.blurple(),
             )
-            .set_author(
-                name=str(ctx.author), icon_url=ctx.author.display_avatar.url
-            )
+            .set_author(name=str(ctx.author), icon_url=ctx.author.display_avatar.url)
             .set_footer(text=f"ID: {ctx.author.id}")
         )
         await msg.add_reaction("<:upvote:881521766231584848>")
@@ -117,6 +118,9 @@ class Pycord(Cog):
         if self.staff_list is not None:
             await self.staff_list.edit(embed=embed)
         else:
+            self.staff_list_channel = self.staff_list_channel or self.bot.get_channel(
+                884730803588829206
+            )
             await self.staff_list_channel.purge(limit=1)
             self.staff_list = await self.staff_list_channel.send(embed=embed)
         await ctx.send("Done!")
