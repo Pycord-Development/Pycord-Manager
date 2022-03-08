@@ -33,14 +33,15 @@ class PycordManager(commands.Bot):
             "jishaku",
             "cogs.developer",
             "cogs.fun",
-            "cogs.general",
             "cogs.moderation",
+            "cogs.modlogs",
+            "cogs.automod",
             "cogs.warns",
             "cogs.tags",
             "cogs.gitlink",
         ]
 
-        for cog in ["cogs.pycord"]:  # cogs with application commands
+        for cog in ["cogs.pycord", "cogs.general"]:  # cogs with application commands
             self.load_cog(cog)
 
     @property
