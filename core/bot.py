@@ -9,6 +9,8 @@ from discord.errors import ExtensionFailed
 from discord.ext import commands
 from tortoise import Tortoise
 
+from .context import Context
+
 
 class Toolkit(commands.Bot):
     on_ready_fired: bool = False
@@ -39,6 +41,7 @@ class Toolkit(commands.Bot):
         ]
         for cog in [
             "cogs.automod",
+            "cogs.dropdown_roles",
             "cogs.fun",
             "cogs.general",
             "cogs.help",
@@ -57,10 +60,9 @@ class Toolkit(commands.Bot):
     def load_cog(self, cog: str) -> None:
         try:
             self.load_extension(cog)
-        except ExtensionFailed as e:
-            print("".join(format_exception(e.original)))
         except Exception as e:
-            print("".join(format_exception(e)))
+            e = getattr(e, "original", e)
+            print("".join(format_exception(type(e), e, e.__traceback__)))
 
     async def on_connect(self) -> None:
         if "-s" in argv:
@@ -90,28 +92,37 @@ class Toolkit(commands.Bot):
         print(self.user, "is ready")
 
     async def on_application_command_error(
-        self, ctx: discord.ApplicationContext, error: discord.ApplicationCommandError
+        self, ctx: Context, error: Exception
     ):
         if isinstance(error, discord.ApplicationCommandInvokeError):
-            await ctx.respond(
-                "An unexpected error has occured and I've notified my developer. "
-                "In the meantime, consider joining my support server.",
-                view=discord.ui.View(
-                    discord.ui.Button(
-                        label="Support", url="https://discord.gg/8JsMVhBP4W"
+            if isinstance((error := error.original), discord.HTTPException):
+                message = (
+                    "An HTTP exception has occured: "
+                    f"{error.status} {error.__class__.__name__}"
+                )
+                if error.text:
+                    message += f": {error.text}"
+                return await ctx.respond(message)
+            if not isinstance(error, discord.DiscordException):
+                await ctx.respond(
+                    "An unexpected error has occured and I've notified my developer. "
+                    "In the meantime, consider joining my support server.",
+                    view=discord.ui.View(
+                        discord.ui.Button(
+                            label="Support", url="https://discord.gg/8JsMVhBP4W"
+                        ),
+                        discord.ui.Button(
+                            label="GitHub Repo",
+                            url="https://github.com/Dorukyum/Toolkit",
+                        ),
                     ),
-                    discord.ui.Button(
-                        label="GitHub Repo",
-                        url="https://github.com/Dorukyum/Toolkit",
-                    ),
-                ),
-            )
-            header = f"Command: `/{ctx.command.qualified_name}`"
-            if ctx.guild is not None:
-                header += f" | Guild: `{ctx.guild.name} ({ctx.guild_id})`"
-            return await self.errors_webhook.send(
-                f"{header}\n```\n{''.join(format_exception(type(error), error, error.__traceback__))}```"
-            )
+                )
+                header = f"Command: `/{ctx.command.qualified_name}`"
+                if ctx.guild is not None:
+                    header += f" | Guild: `{ctx.guild.name} ({ctx.guild_id})`"
+                return await self.errors_webhook.send(
+                    f"{header}\n```\n{''.join(format_exception(type(error), error, error.__traceback__))}```"
+                )
 
         await ctx.respond(
             embed=discord.Embed(
@@ -121,9 +132,16 @@ class Toolkit(commands.Bot):
             )
         )
 
-    async def on_message_edit(self, before: discord.Message, after: discord.Message):
+    async def on_message_edit(
+        self, before: discord.Message, after: discord.Message
+    ) -> None:
         if before.content != after.content:
             await self.process_commands(after)
+
+    async def get_application_context(
+        self, interaction: discord.Interaction
+    ) -> Context:
+        return Context(self, interaction)
 
     def run(self):
         super().run(getenv("TOKEN"))

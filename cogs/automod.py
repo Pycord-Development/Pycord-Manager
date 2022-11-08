@@ -4,13 +4,12 @@ from tortoise.exceptions import ConfigurationError
 from typing import Union
 
 import discord
-from discord import ApplicationContext
 
-from core import Cog, GuildModel
+from core import Cog, Context, GuildModel
 
 
 class Automod(Cog):
-    """A cog for the automoderation system."""
+    """Commands related to the automoderation system."""
 
     async def automod_on(self, target: Union[discord.Message, discord.Member]) -> bool:
         """Returns whether or not the target should be automodded."""
@@ -30,7 +29,7 @@ class Automod(Cog):
         description="Turn automod on or off.",
         choices=["On", "Off"],
     )
-    async def automod(self, ctx: ApplicationContext, status: str):
+    async def automod(self, ctx: Context, status: str):
         """Toggle automoderation for this server."""
         guild, _ = await GuildModel.get_or_create(id=ctx.guild_id)
         as_bool = status == "On"
