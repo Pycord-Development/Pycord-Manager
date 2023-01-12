@@ -5,11 +5,11 @@ from typing import Dict
 
 import discord
 from aiohttp import ClientSession
-from discord.errors import ExtensionFailed
 from discord.ext import commands
 from tortoise import Tortoise
 
 from .context import Context
+from .models import GuildModel
 
 
 class Toolkit(commands.Bot):
@@ -18,7 +18,13 @@ class Toolkit(commands.Bot):
 
     def __init__(self):
         super().__init__(
+            activity=discord.Activity(
+                type=discord.ActivityType.listening, name=f"/help"
+            ),
+            allowed_mentions=discord.AllowedMentions.none(),
+            chunk_guilds_at_startup=False,
             command_prefix="t." if "-t" not in argv else "d.",
+            help_command=None,
             intents=discord.Intents(
                 members=True,
                 messages=True,
@@ -27,30 +33,23 @@ class Toolkit(commands.Bot):
                 bans=True,
             ),
             owner_ids=[543397958197182464],
-            help_command=None,
-            allowed_mentions=discord.AllowedMentions.none(),
-            activity=discord.Activity(
-                type=discord.ActivityType.listening, name=f"/help"
-            ),
         )
 
-        self.to_load = [
-            "jishaku",
-            "cogs.developer",
-            "cogs.gitlink",
-        ]
         for cog in [
+            "jishaku",
             "cogs.automod",
+            "cogs.developer",
             "cogs.dropdown_roles",
             "cogs.fun",
             "cogs.general",
             "cogs.help",
             "cogs.moderation",
             "cogs.modlogs",
+            "cogs.owner",
             "cogs.pycord",
             "cogs.tags",
             "cogs.warnings",
-        ]:  # cogs with application commands
+        ]:
             self.load_cog(cog)
 
     @property
@@ -82,18 +81,13 @@ class Toolkit(commands.Bot):
         environ.setdefault("JISHAKU_HIDE", "1")
         environ.setdefault("JISHAKU_NO_UNDERSCORE", "1")
 
-        for cog in self.to_load:
-            self.load_cog(cog)
-
         await Tortoise.init(
             db_url="sqlite://data/database.db", modules={"models": ["core.models"]}
         )
         await Tortoise.generate_schemas()
         print(self.user, "is ready")
 
-    async def on_application_command_error(
-        self, ctx: Context, error: Exception
-    ):
+    async def on_application_command_error(self, ctx: Context, error: Exception):
         if isinstance(error, discord.ApplicationCommandInvokeError):
             if isinstance((error := error.original), discord.HTTPException):
                 message = (
@@ -137,6 +131,10 @@ class Toolkit(commands.Bot):
     ) -> None:
         if before.content != after.content:
             await self.process_commands(after)
+
+    async def on_guild_remove(self, guild: discord.Guild) -> None:
+        if saved := await GuildModel.get_or_none(id=guild.id):
+            await saved.delete()
 
     async def get_application_context(
         self, interaction: discord.Interaction
